@@ -136,6 +136,7 @@ final class HUDWindowState: ObservableObject {
 struct OrreryApp: App {
     @StateObject private var audio = AudioSpectrum()
     @StateObject private var windowState = HUDWindowState()
+    @StateObject private var settings = HUDSettings.shared
 
     var body: some Scene {
         WindowGroup {
@@ -144,7 +145,8 @@ struct OrreryApp: App {
                 .environmentObject(audio.settings)
                 .environmentObject(windowState)
                 .ignoresSafeArea()
-                .background(WindowConfigurator(mode: windowState.mode))
+                .background(WindowConfigurator(mode: windowState.mode,
+                                               background: HUD.palette.backgroundNS))
                 .task { await audio.start() }
         }
         .windowStyle(.hiddenTitleBar)
@@ -162,17 +164,23 @@ struct OrreryApp: App {
                     .keyboardShortcut("9", modifiers: .command)
             }
         }
+
+        Settings {
+            SettingsView()
+        }
     }
 }
 
 private struct WindowConfigurator: NSViewRepresentable {
     let mode: HUDWindowMode
+    let background: NSColor
 
     func makeNSView(context: Context) -> NSView { NSView() }
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func updateNSView(_ view: NSView, context: Context) {
         let mode = self.mode
+        let background = self.background
         let coordinator = context.coordinator
         DispatchQueue.main.async {
             guard let window = view.window else { return }
@@ -180,11 +188,12 @@ private struct WindowConfigurator: NSViewRepresentable {
                 coordinator.configured = true
                 Self.configureOnce(window)
             }
-            // 重なり方はモードごとに切り替える
+            // 重なり方はモードごとに、背景色はテーマごとに切り替える
             window.level = mode.windowLevel
             window.collectionBehavior = mode.collectionBehavior
             window.isMovable = mode.isMovable
             window.isMovableByWindowBackground = mode.isMovable
+            window.backgroundColor = background
         }
     }
 

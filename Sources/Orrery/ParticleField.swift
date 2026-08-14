@@ -8,10 +8,13 @@ let seedA: CGFloat = 0.754_877_666_2
 let seedB: CGFloat = 0.569_840_290_9
 
 enum GrainPalette {
-    /// 待機中は彩度が抜けて砂色、音が出ると低音シアン→高音マゼンタに色づく
+    /// 待機中は彩度が抜けて砂色、音が出ると低音→高音でテーマの色相に色づく
     static func color(ratio: CGFloat, activation: CGFloat, value: CGFloat) -> Color {
-        Color(hue: Double(0.53 + 0.36 * ratio),
-              saturation: Double(0.18 + 0.72 * activation),
+        let palette = HUD.palette
+        let hue = (palette.grainHueBase + palette.grainHueSpan * Double(ratio))
+            .truncatingRemainder(dividingBy: 1)
+        return Color(hue: hue < 0 ? hue + 1 : hue,
+              saturation: Double(0.18 + 0.72 * activation) * palette.grainSaturation,
               brightness: Double(min(1, 0.64 + 0.20 * value + 0.16 * activation)),
               opacity: Double(min(1, 0.44 + 0.28 * activation + 0.28 * value)))
     }

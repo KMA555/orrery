@@ -13,6 +13,7 @@ final class Services {
 
 struct HUDView: View {
     @EnvironmentObject private var windowState: HUDWindowState
+    @ObservedObject private var settings = HUDSettings.shared
     @State private var services = Services()
 
     var body: some View {
@@ -34,33 +35,41 @@ struct HUDView: View {
                     }
 
                     HStack(alignment: .top, spacing: 14) {
-                        VStack(spacing: 14) {
-                            SystemPanel(system: services.system)
-                            NetworkPanel(system: services.system)
-                            UsagePanel(usage: services.usage)
-                            Spacer(minLength: 0)
+                        if settings.showSystem || settings.showNetwork || settings.showUsage {
+                            VStack(spacing: 14) {
+                                if settings.showSystem { SystemPanel(system: services.system) }
+                                if settings.showNetwork { NetworkPanel(system: services.system) }
+                                if settings.showUsage { UsagePanel(usage: services.usage) }
+                                Spacer(minLength: 0)
+                            }
+                            .frame(width: leftWidth)
                         }
-                        .frame(width: leftWidth)
 
                         CenterColumn(system: services.system)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                        VStack(spacing: 14) {
-                            WeatherPanel(weather: services.weather)
-                            MarketPanel(market: services.market)
-                            Spacer(minLength: 0)
+                        if settings.showWeather || settings.showMarket {
+                            VStack(spacing: 14) {
+                                if settings.showWeather { WeatherPanel(weather: services.weather) }
+                                if settings.showMarket { MarketPanel(market: services.market) }
+                                Spacer(minLength: 0)
+                            }
+                            .frame(width: rightWidth)
                         }
-                        .frame(width: rightWidth)
                     }
 
-                    SandStream()
-                        .frame(height: 116)
-                        .clipShape(CutCorner())
-                        .background(CutCorner().fill(Color.white.opacity(0.02)))
-                        .overlay(CutCorner().stroke(HUD.cyan.opacity(0.18), lineWidth: 1))
+                    if settings.showSand {
+                        SandStream()
+                            .frame(height: 116)
+                            .clipShape(CutCorner())
+                            .background(CutCorner().fill(Color.white.opacity(0.02)))
+                            .overlay(CutCorner().stroke(HUD.cyan.opacity(0.18), lineWidth: 1))
+                    }
                 }
                 .padding(18)
             }
+            // テーマやFPSが変わったら描画ツリーを作り直して、全体に行き渡らせる
+            .id(settings.rebuildFingerprint)
         }
         .task {
             services.system.start()
@@ -70,6 +79,13 @@ struct HUDView: View {
             // 音声コマンドとボタンは同じ入口を通す
             services.wake.onTrigger = { windowState.requestVoiceSession() }
             services.wake.isSuppressed = { windowState.sessionActive || windowState.starting }
+        }
+        // 設定画面で地点や銘柄が変わったら取り直す
+        .onReceive(settings.dataRefresh) { _ in
+            Task {
+                await services.weather.refresh()
+                await services.market.refresh()
+            }
         }
     }
 }
@@ -143,6 +159,7 @@ private struct TopBar: View {
             HUDPill(icon: windowState.mode.icon, title: windowState.mode.label) {
                 windowState.mode = windowState.mode.next
             }
+            SettingsPill()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -184,6 +201,24 @@ private struct TopBar: View {
         .frame(minWidth: 74, alignment: .leading)
     }
 
+}
+
+/// 設定画面（⌘,）を開く。SettingsLinkはボタンではないので、HUDPillと同じ見た目を重ねる。
+private struct SettingsPill: View {
+    var body: some View {
+        SettingsLink {
+            HStack(spacing: 6) {
+                Image(systemName: "gearshape.fill").font(.system(size: 10, weight: .bold))
+                Text("設定").font(HUD.mono(10, .bold)).tracking(1.2)
+            }
+            .foregroundStyle(HUD.cyan)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(HUD.cyan.opacity(0.08)))
+            .overlay(Capsule().stroke(HUD.cyan.opacity(0.35), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 /// 音源の切り替え。毎フレーム更新される AudioSpectrum ではなく設定だけを見るので、再描画されない。

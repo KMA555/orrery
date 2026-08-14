@@ -3,9 +3,17 @@ import SwiftUI
 // MARK: - 配色と書体
 
 enum HUD {
-    static let cyan = Color(red: 0.36, green: 0.86, blue: 1.0)
-    static let violet = Color(red: 0.62, green: 0.52, blue: 1.0)
-    static let magenta = Color(red: 1.0, green: 0.36, blue: 0.78)
+    /// 現在のテーマ。HUDSettingsが起動時と変更時に差し替える。
+    /// メインスレッドからのみ触る。
+    static var palette = HUDTheme.arc.palette(customAccent: .white)
+
+    // 役割名は初代テーマの色名のまま（呼び出し側を変えないため）。
+    // 実際の色はテーマで変わる。
+    static var cyan: Color { palette.accent }
+    static var violet: Color { palette.secondary }
+    static var magenta: Color { palette.tertiary }
+
+    // 上げ下げと警告は意味を持つ色なので、テーマに関わらず固定
     static let up = Color(red: 0.36, green: 1.0, blue: 0.68)
     static let down = Color(red: 1.0, green: 0.40, blue: 0.52)
     static let warn = Color(red: 1.0, green: 0.74, blue: 0.30)
@@ -70,7 +78,7 @@ struct HUDBackdrop: View {
 
     var body: some View {
         ZStack {
-            Color(red: 0.015, green: 0.025, blue: 0.04)
+            HUD.palette.background
             Canvas { context, size in
                 let spacing: CGFloat = 48
                 var grid = Path()
