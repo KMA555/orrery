@@ -1,11 +1,47 @@
 # ORRERY
 
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
+[![Release](https://img.shields.io/github/v/release/ito-ops/orrery)](https://github.com/ito-ops/orrery/releases/latest)
+
+[English README →](README.en.md)
+
 画面いっぱいに広がるHUDダッシュボードです。中央のアークリアクターがCodexの音声に反応し、まわりに日付・天気・株価・システム情報・Claudeの使用量が並びます。
 
-## 起動
+![ORRERY](docs/screenshot-arc.png)
+
+配色テーマは設定画面（⌘,）から切り替えられます。
+
+| EMBER | MATRIX |
+| --- | --- |
+| ![EMBER](docs/screenshot-ember.png) | ![MATRIX](docs/screenshot-matrix.png) |
+
+## インストール
+
+### ダウンロードして使う
+
+1. [Releases](https://github.com/ito-ops/orrery/releases/latest) から `Orrery-vX.X.X-macos.zip` をダウンロードして展開
+2. `Orrery.app` を `~/Applications`（または `/Applications`）へ移動
+3. 無料配布のため Apple の公証を通しておらず、初回は Gatekeeper にブロックされます。ターミナルで隔離属性を外してから開いてください:
 
 ```bash
-./ORRERYを起動.command
+xattr -cr ~/Applications/Orrery.app
+```
+
+（Finder で右クリック → 開く でも可。開けない場合は システム設定 › プライバシーとセキュリティ 最下部の「このまま開く」）
+
+ソースはすべて公開されているので、気になる場合は次のソースビルドをどうぞ。
+
+### ソースからビルドする
+
+Xcode か Command Line Tools が入っていれば:
+
+```bash
+git clone https://github.com/ito-ops/orrery.git
+```
+
+```bash
+cd orrery && ./ORRERYを起動.command
 ```
 
 ビルドして `~/Applications/Orrery.app` を組み立ててから起動します。マイク・音声認識・画面収録の許可はアプリバンドル単位で記録されるため、`swift run` の素の実行ファイルでは音声機能が使えません。
@@ -109,14 +145,26 @@ Mission Control、App Exposé、ウィンドウの整列（タイル表示）に
 | **最前面** | 常に手前、全スペースに表示 | できる | 出る |
 | **デスクトップ** | 壁紙の上・ウィンドウの後ろ | できない | 出ない |
 
-## 設定
+## 設定画面
 
-環境変数で変えられます。
+⌘,（または上部右の「設定」ボタン）で設定画面が開きます。設定は保存され、次回起動にも引き継がれます。
+
+| タブ | 内容 |
+| --- | --- |
+| 一般 | 天気の地点、株価・為替の銘柄、声で起動する合図 |
+| テーマ | 配色5種（ARC / EMBER / MATRIX / CRIMSON / MONO）＋カスタムカラー。1色選ぶと残りは自動で組み立てます |
+| パネル | 各パネルと下部の砂の帯を個別にON/OFF。列ごと消すと中央が広がります |
+| 負荷 | 粒子の数、更新頻度 |
+
+## 環境変数
+
+すべて設定画面から変えられますが、環境変数でも上書きできます。優先順は **環境変数 > 設定画面 > 既定値** です。
 
 | 変数 | 既定値 | 内容 |
 | --- | --- | --- |
 | `HUD_CITY` | `TOKYO` | 天気パネルに出す地名 |
 | `HUD_LAT` / `HUD_LON` | 東京の緯度経度 | 天気を取る地点 |
+| `HUD_TICKERS` | 日経・ドル円など6銘柄 | 株価パネルの銘柄。「シンボル:表示名」をカンマ区切りで（例 `^N225:NIKKEI 225,BTC-USD:BITCOIN`） |
 | `HUD_AUDIO_APPS` | `codex` | 音を拾う対象アプリ（アプリ名かバンドルIDの一部、カンマ区切り） |
 | `HUD_WAKE_PHRASES` | `オレリー,コーデックス,orrery,hey codex` | 声で起動するときの合図（カンマ区切り） |
 | `HUD_WAKE_LOCALE` | `ja-JP` | 音声認識の言語 |
@@ -130,8 +178,6 @@ Mission Control、App Exposé、ウィンドウの整列（タイル表示）に
 ```bash
 HUD_CITY=OSAKA HUD_LAT=34.6937 HUD_LON=135.5023 swift run
 ```
-
-銘柄は `Sources/Orrery/HUDConfig.swift` の `tickers` を書き換えてください。
 
 ## 負荷について
 
@@ -162,6 +208,9 @@ HUD_CITY=OSAKA HUD_LAT=34.6937 HUD_LON=135.5023 swift run
 | --- | --- |
 | `App.swift` | ウィンドウの設定・重なり方・メニュー |
 | `HUDView.swift` | 全体のレイアウトと上部バー |
+| `HUDSettings.swift` | 設定画面の項目と保存（UserDefaults） |
+| `HUDTheme.swift` | 配色テーマの定義とカスタムカラーの組み立て |
+| `SettingsView.swift` | 設定画面（⌘,）のUI |
 | `OrreryDial.swift` | 中央のリング一式 |
 | `ParticleField.swift` | 粒子の配色と下部の砂の帯 |
 | `CenterStage.swift` | 時計とCodexボタン |
