@@ -13,6 +13,8 @@ class ModelFixture(BaseHTTPRequestHandler):
     requests = []
     ready = True
     fail = False
+    stream_gate = None
+    truncated = False
 
     def log_message(self, *args):
         pass
@@ -23,10 +25,20 @@ class ModelFixture(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps({"status": "ok" if self.ready else "loading"}).encode())
 
     def do_POST(self):
-        self.requests.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+        payload = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        self.requests.append(payload)
         self.send_response(429 if self.fail else 200)
         self.end_headers()
-        self.wfile.write(json.dumps({"choices": [{"message": {"content": "検証用の返答"}}]}, ensure_ascii=False).encode())
+        if payload.get("stream") and not self.fail:
+            for i, piece in enumerate(["検証用", "の返答"]):
+                self.wfile.write(("data: " + json.dumps({"choices": [{"delta": {"content": piece}}]}, ensure_ascii=False) + "\n\n").encode())
+                self.wfile.flush()
+                if i == 0 and self.stream_gate is not None:
+                    self.stream_gate.wait(5)
+            if not self.truncated:
+                self.wfile.write(b"data: [DONE]\n\n")
+        else:
+            self.wfile.write(json.dumps({"choices": [{"message": {"content": "検証用の返答"}}]}, ensure_ascii=False).encode())
 
 
 class AppTests(unittest.TestCase):
@@ -61,6 +73,8 @@ class AppTests(unittest.TestCase):
         ModelFixture.ready = True
         ModelFixture.fail = False
         ModelFixture.requests.clear()
+        ModelFixture.stream_gate = None
+        ModelFixture.truncated = False
 
     def request(self, route, body=None, origin=None):
         headers = {"Origin": origin or self.origin, "Content-Type": "application/json"}
@@ -70,6 +84,30 @@ class AppTests(unittest.TestCase):
                 return response.status, json.load(response)
         except urllib.error.HTTPError as e:
             return e.code, json.load(e)
+
+    def test_stream_delivers_before_model_finishes_and_saves_only_complete_reply(self):
+        ModelFixture.stream_gate = threading.Event()
+        request = urllib.request.Request(self.origin + "/api/chat/stream", data=json.dumps({"content": "こんにちは"}).encode(), headers={"Origin": self.origin, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=3) as response:
+                first = json.loads(response.readline())
+                self.assertEqual(first, {"type": "delta", "text": "検証用"})
+                self.assertEqual(self.app.state()["messages"], [])
+                ModelFixture.stream_gate.set()
+                events = [json.loads(line) for line in response]
+            self.assertEqual(events[-1]["type"], "done")
+            self.assertEqual(events[-1]["state"]["messages"][-1]["content"], "検証用の返答")
+        finally:
+            ModelFixture.stream_gate.set()
+
+    def test_truncated_stream_reports_error_without_saving_partial_reply(self):
+        ModelFixture.truncated = True
+        request = urllib.request.Request(self.origin + "/api/chat/stream", data=json.dumps({"content": "こんにちは"}).encode(), headers={"Origin": self.origin, "Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=3) as response:
+            events = [json.loads(line) for line in response]
+        self.assertEqual(events[0]["type"], "delta")
+        self.assertEqual(events[-1]["type"], "error")
+        self.assertEqual(self.app.state()["messages"], [])
 
     def test_memory_persists_and_can_be_deleted(self):
         _, s = self.request("/api/memories", {"content": "回答は短めが好き"})

@@ -90,7 +90,7 @@ def text_field(body, name, limit):
     return value.strip()
 
 
-def completion(messages):
+def completion(messages, on_delta=None):
     key = os.environ.get("ORBIT_API_KEY", "")
     headers = {"Content-Type": "application/json"}
     if PROVIDER == "openai":
@@ -98,14 +98,36 @@ def completion(messages):
     endpoint = f"http://127.0.0.1:{LOCAL_PORT}/v1/chat/completions" if PROVIDER == "local" else "https://api.openai.com/v1/chat/completions"
     request = urllib.request.Request(
         endpoint,
-        data=json.dumps({"model": MODEL, "messages": messages, "max_tokens": 1000}).encode(),
+        data=json.dumps({"model": MODEL, "messages": messages, "max_tokens": 1000, "stream": on_delta is not None}).encode(),
         headers=headers,
         method="POST",
     )
     try:
         with urllib.request.urlopen(request, timeout=600 if PROVIDER == "local" else 60) as response:
-            result = json.load(response)
-        reply = result["choices"][0]["message"]["content"]
+            if on_delta is None:
+                result = json.load(response)
+                reply = result["choices"][0]["message"]["content"]
+            else:
+                parts = []
+                finished = False
+                for line in response:
+                    if not line.startswith(b"data:"):
+                        continue
+                    payload = line[5:].strip()
+                    if payload == b"[DONE]":
+                        finished = True
+                        break
+                    event = json.loads(payload)
+                    choices = event.get("choices", [])
+                    if not choices:
+                        continue
+                    piece = choices[0].get("delta", {}).get("content")
+                    if isinstance(piece, str) and piece:
+                        parts.append(piece)
+                        on_delta(piece)
+                if not finished:
+                    raise ValueError("Incomplete response stream")
+                reply = "".join(parts)
         if not isinstance(reply, str) or not reply.strip():
             raise ValueError("Empty response")
     except urllib.error.HTTPError as error:
@@ -116,7 +138,7 @@ def completion(messages):
     return reply
 
 
-def ask_ai(content):
+def ask_ai(content, on_delta=None):
     key = os.environ.get("ORBIT_API_KEY")
     if PROVIDER not in {"local", "openai"}:
         return 503, {"error": "AI の接続方式を確認してください。"}
@@ -141,7 +163,7 @@ def ask_ai(content):
         messages.extend({"role": m["role"], "content": m["content"]} for m in current["messages"][-20:])
         messages.append({"role": "user", "content": content})
         try:
-            reply = completion(messages)
+            reply = completion(messages) if on_delta is None else completion(messages, on_delta)
         except RuntimeError as error:
             return 502, {"error": str(error)}
         with database() as conn:
@@ -204,6 +226,22 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict):
                 raise ValueError("入力形式が正しくありません。")
+            if self.path == "/api/chat/stream":
+                content = text_field(body, "content", 10000)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.end_headers()
+                def event(value):
+                    self.wfile.write((json.dumps(value, ensure_ascii=False) + "\n").encode())
+                    self.wfile.flush()
+                try:
+                    status, result = ask_ai(content, lambda piece: event({"type": "delta", "text": piece}))
+                    event({"type": "done", "state": result} if status == 200 else {"type": "error", "error": result["error"]})
+                except (BrokenPipeError, ConnectionResetError):
+                    pass  # A disconnected browser must not generate a second response.
+                return
             if self.path == "/api/chat":
                 status, result = ask_ai(text_field(body, "content", 10000))
                 self.json_response(status, result)

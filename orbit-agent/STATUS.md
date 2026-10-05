@@ -13,7 +13,7 @@ Verified with tests and synthetic model replies:
 - HTTP origin restrictions, safe text rendering and responsive browser UI.
 
 Also verified in the Linux cloud: pinned llama.cpp b5808 CPU server builds and
-reports its version. All 18 Python tests pass, including model-file selection
+reports its version. All 20 Python tests pass, including model-file selection
 and checksum failure handling. A Mac installer is provided in setup_local_ai.py.
 
 Not implemented or verified:
@@ -36,3 +36,8 @@ links as a verified distribution method. The user authorized publication to KMA5
 Intel macOS compatibility: the installer disables native CPU detection and AVX-512,
 uses AVX2, and targets macOS 13.3+. This addresses a reported Apple clang 14
 backend crash in x86/repack.cpp; the Mac rebuild remains to be confirmed.
+
+Streaming chat is verified with a gated model fixture: the browser receives
+a delta before generation completes; interrupted output is not saved. Browser
+checks cover streamed chat rendering and existing speech settings. Real-model
+latency on the user Mac has not been benchmarked.
