@@ -103,7 +103,7 @@ def completion(messages):
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
+        with urllib.request.urlopen(request, timeout=600 if PROVIDER == "local" else 60) as response:
             result = json.load(response)
         reply = result["choices"][0]["message"]["content"]
         if not isinstance(reply, str) or not reply.strip():
