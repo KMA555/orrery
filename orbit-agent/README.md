@@ -116,3 +116,5 @@ uses AVX2, and targets macOS 13.3+. This addresses a reported Apple clang 14
 backend crash in x86/repack.cpp; the Mac rebuild remains to be confirmed.
 
 AI の新しい会話の返答は標準で自動読み上げします。「自動読み上げ ON/OFF」で切り替え、設定はブラウザに保存します。既存履歴は自動で読みません。「読み上げ停止」で止め、「返答を読む」で再生できます。音声はブラウザの日本語音声を利用します。
+
+UI はダークなコックピット風の3カラム構成です。リアクターは会話の待機・処理・音声入力に反応します。モバイル幅では会話と操作パネルを縦に表示し、動きを減らすブラウザ設定にも対応します。
