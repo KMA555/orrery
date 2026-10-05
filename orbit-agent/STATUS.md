@@ -32,3 +32,7 @@ source control. The default local provider uses no API key; start it separately 
 The cloud cannot supply a working downloadable attachment in this conversation;
 prior `sandbox:/workspace/...` links did not work for the user. Do not repeat those
 links as a verified distribution method. The user authorized publication to KMA555/orrery branch codex/orbit-agent.
+
+Intel macOS compatibility: the installer disables native CPU detection and AVX-512,
+uses AVX2, and targets macOS 13.3+. This addresses a reported Apple clang 14
+backend crash in x86/repack.cpp; the Mac rebuild remains to be confirmed.

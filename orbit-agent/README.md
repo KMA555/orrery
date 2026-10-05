@@ -110,3 +110,7 @@ Mac 実機の Chrome、実マイク、実際の AI サービスは別途検証�
 AI の計画・振り返りには検証用の固定応答を使いました。実モデルの品質は未検証です。
 クラウドから Hugging Face のモデル配布先への通信は CONNECT 403 で遮断されました。
 Mac へのファイル転送と無料モデルの導入は未完了です。
+
+Intel macOS compatibility: the installer disables native CPU detection and AVX-512,
+uses AVX2, and targets macOS 13.3+. This addresses a reported Apple clang 14
+backend crash in x86/repack.cpp; the Mac rebuild remains to be confirmed.

@@ -99,11 +99,14 @@ def prepare():
     actual = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
     if actual != LLAMA_COMMIT:
         raise ValueError("AI 実行環境のソースが予定した版と異なります。既存ファイルを確認してください。")
-    build = source / "build-orbit-cpu"
+    build = source / "build-orbit-cpu-compatible"
     binary = build / "bin/llama-server"
     if not binary.is_file():
         print("AI 実行環境をビルドしています…", flush=True)
-        run(cmake, "-S", source, "-B", build, "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0",
+        run(cmake, "-S", source, "-B", build, "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.3",
+            "-DGGML_NATIVE=OFF", "-DGGML_AVX=ON", "-DGGML_AVX2=ON",
+            "-DGGML_FMA=ON", "-DGGML_F16C=ON", "-DGGML_AVX512=OFF",
+            "-DGGML_AVX512_VBMI=OFF", "-DGGML_AVX512_VNNI=OFF", "-DGGML_AVX512_BF16=OFF",
             "-DGGML_METAL=OFF", "-DGGML_OPENMP=OFF", "-DLLAMA_CURL=OFF", "-DLLAMA_BUILD_TESTS=OFF")
         run(cmake, "--build", build, "--config", "Release", "--target", "llama-server", "-j", "4")
     model_dir = RUNTIME / "models"
